@@ -10,23 +10,26 @@ st.markdown("**Trabajo Fin de Grado** | Autor: José Antonio Carreño Ramírez")
 st.markdown("Simulación interactiva del lazo de control de corriente para el inversor de acoplamiento a red.")
 
 # --- INICIALIZACIÓN DEL ESTADO DE SESIÓN ---
-# Esto asegura que la barra y la casilla compartan el mismo valor
-if 'L_val' not in st.session_state:
-    st.session_state.L_val = 1.0
-if 'banda_val' not in st.session_state:
-    st.session_state.banda_val = 4.0
-if 'P_val' not in st.session_state:
-    st.session_state.P_val = 50.0
+# Inicializamos las variables de los componentes por separado
+if "L_slider" not in st.session_state: st.session_state.L_slider = 1.0
+if "L_num" not in st.session_state: st.session_state.L_num = 1.0
 
-# Funciones de actualización cruzada (Callbacks)
-def update_L_slider(): st.session_state.L_val = st.session_state.L_num
-def update_L_num(): st.session_state.L_val = st.session_state.L_slider
+if "banda_slider" not in st.session_state: st.session_state.banda_slider = 4.0
+if "banda_num" not in st.session_state: st.session_state.banda_num = 4.0
 
-def update_banda_slider(): st.session_state.banda_val = st.session_state.banda_num
-def update_banda_num(): st.session_state.banda_val = st.session_state.banda_slider
+if "P_slider" not in st.session_state: st.session_state.P_slider = 50.0
+if "P_num" not in st.session_state: st.session_state.P_num = 50.0
 
-def update_P_slider(): st.session_state.P_val = st.session_state.P_num
-def update_P_num(): st.session_state.P_val = st.session_state.P_slider
+# --- FUNCIONES DE SINCRONIZACIÓN (CALLBACKS) ---
+# Si muevo la barra, actualizo la caja. Si escribo en la caja, actualizo la barra.
+def sync_L_from_slider(): st.session_state.L_num = st.session_state.L_slider
+def sync_L_from_num(): st.session_state.L_slider = st.session_state.L_num
+
+def sync_banda_from_slider(): st.session_state.banda_num = st.session_state.banda_slider
+def sync_banda_from_num(): st.session_state.banda_slider = st.session_state.banda_num
+
+def sync_P_from_slider(): st.session_state.P_num = st.session_state.P_slider
+def sync_P_from_num(): st.session_state.P_slider = st.session_state.P_num
 
 # --- BARRA LATERAL: CONTROLES INTERACTIVOS ENLAZADOS ---
 st.sidebar.header("Parámetros del Sistema")
@@ -35,33 +38,33 @@ st.sidebar.header("Parámetros del Sistema")
 st.sidebar.markdown("**Inductancia del Filtro (mH)**")
 col1a, col1b = st.sidebar.columns([3, 1])
 with col1a:
-    st.slider("L_slider", 0.1, 50.0, key="L_slider", on_change=update_L_num, label_visibility="collapsed")
+    st.slider("L_slider", 0.1, 50.0, key="L_slider", on_change=sync_L_from_slider, label_visibility="collapsed")
 with col1b:
-    st.number_input("L_num", 0.1, 50.0, key="L_num", on_change=update_L_slider, format="%.2f", label_visibility="collapsed")
+    st.number_input("L_num", 0.1, 50.0, key="L_num", on_change=sync_L_from_num, format="%.2f", label_visibility="collapsed")
 
 # 2. Banda de Histéresis
 st.sidebar.markdown("**Banda de Histéresis (A)**")
 col2a, col2b = st.sidebar.columns([3, 1])
 with col2a:
-    st.slider("banda_slider", 0.1, 20.0, key="banda_slider", on_change=update_banda_num, label_visibility="collapsed")
+    st.slider("banda_slider", 0.1, 20.0, key="banda_slider", on_change=sync_banda_from_slider, label_visibility="collapsed")
 with col2b:
-    st.number_input("banda_num", 0.1, 20.0, key="banda_num", on_change=update_banda_slider, format="%.2f", label_visibility="collapsed")
+    st.number_input("banda_num", 0.1, 20.0, key="banda_num", on_change=sync_banda_from_num, format="%.2f", label_visibility="collapsed")
 
 # 3. Potencia Activa
 st.sidebar.markdown("**Potencia Activa Inyectada (kW)**")
 col3a, col3b = st.sidebar.columns([3, 1])
 with col3a:
-    st.slider("P_slider", 1.0, 100.0, key="P_slider", on_change=update_P_num, label_visibility="collapsed")
+    st.slider("P_slider", 1.0, 100.0, key="P_slider", on_change=sync_P_from_slider, label_visibility="collapsed")
 with col3b:
-    st.number_input("P_num", 1.0, 100.0, key="P_num", on_change=update_P_slider, format="%.1f", label_visibility="collapsed")
+    st.number_input("P_num", 1.0, 100.0, key="P_num", on_change=sync_P_from_num, format="%.1f", label_visibility="collapsed")
 
 st.sidebar.markdown("---")
 st.sidebar.info("El simulador resuelve la ecuación diferencial del filtro inductivo con un paso de 10 µs, emulando un DSP físico.")
 
-# Asignamos los valores sincronizados a las variables matemáticas
-L_mH = st.session_state.L_val
-banda_A = st.session_state.banda_val
-P_ref_kW = st.session_state.P_val
+# Asignamos los valores finales para el motor matemático
+L_mH = st.session_state.L_num
+banda_A = st.session_state.banda_num
+P_ref_kW = st.session_state.P_num
 
 # --- MOTOR DE SIMULACIÓN MATEMÁTICA ---
 f = 50.0

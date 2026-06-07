@@ -9,64 +9,81 @@ st.title("Microrred Híbrida: Control por Banda de Histéresis")
 st.markdown("**Trabajo Fin de Grado** | Autor: José Antonio Carreño Ramírez")
 st.markdown("Simulación interactiva del lazo de control de corriente para el inversor de acoplamiento a red.")
 
-# --- BARRA LATERAL: CONTROLES INTERACTIVOS ---
+# --- INICIALIZACIÓN DEL ESTADO DE SESIÓN ---
+# Esto asegura que la barra y la casilla compartan el mismo valor
+if 'L_val' not in st.session_state:
+    st.session_state.L_val = 1.0
+if 'banda_val' not in st.session_state:
+    st.session_state.banda_val = 4.0
+if 'P_val' not in st.session_state:
+    st.session_state.P_val = 50.0
+
+# Funciones de actualización cruzada (Callbacks)
+def update_L_slider(): st.session_state.L_val = st.session_state.L_num
+def update_L_num(): st.session_state.L_val = st.session_state.L_slider
+
+def update_banda_slider(): st.session_state.banda_val = st.session_state.banda_num
+def update_banda_num(): st.session_state.banda_val = st.session_state.banda_slider
+
+def update_P_slider(): st.session_state.P_val = st.session_state.P_num
+def update_P_num(): st.session_state.P_val = st.session_state.P_slider
+
+# --- BARRA LATERAL: CONTROLES INTERACTIVOS ENLAZADOS ---
 st.sidebar.header("Parámetros del Sistema")
-st.sidebar.markdown("Escribe el valor exacto o usa las flechas:")
 
-# Usamos number_input en lugar de slider para permitir escritura exacta
-L_mH = st.sidebar.number_input("Inductancia del Filtro (mH)", 
-                               min_value=0.1, 
-                               max_value=50.0, 
-                               value=1.0,  # Valor por defecto: 1 mH (1e-3 H)
-                               step=0.1, 
-                               format="%.2f")
+# 1. Inductancia (L)
+st.sidebar.markdown("**Inductancia del Filtro (mH)**")
+col1a, col1b = st.sidebar.columns([3, 1])
+with col1a:
+    st.slider("L_slider", 0.1, 50.0, key="L_slider", on_change=update_L_num, label_visibility="collapsed")
+with col1b:
+    st.number_input("L_num", 0.1, 50.0, key="L_num", on_change=update_L_slider, format="%.2f", label_visibility="collapsed")
 
-banda_A = st.sidebar.number_input("Banda de Histéresis (A)", 
-                                  min_value=0.1, 
-                                  max_value=20.0, 
-                                  value=4.0, 
-                                  step=0.1, 
-                                  format="%.2f")
+# 2. Banda de Histéresis
+st.sidebar.markdown("**Banda de Histéresis (A)**")
+col2a, col2b = st.sidebar.columns([3, 1])
+with col2a:
+    st.slider("banda_slider", 0.1, 20.0, key="banda_slider", on_change=update_banda_num, label_visibility="collapsed")
+with col2b:
+    st.number_input("banda_num", 0.1, 20.0, key="banda_num", on_change=update_banda_slider, format="%.2f", label_visibility="collapsed")
 
-P_ref_kW = st.sidebar.number_input("Potencia Activa Inyectada (kW)", 
-                                   min_value=1.0, 
-                                   max_value=100.0, 
-                                   value=50.0, 
-                                   step=1.0, 
-                                   format="%.1f")
+# 3. Potencia Activa
+st.sidebar.markdown("**Potencia Activa Inyectada (kW)**")
+col3a, col3b = st.sidebar.columns([3, 1])
+with col3a:
+    st.slider("P_slider", 1.0, 100.0, key="P_slider", on_change=update_P_num, label_visibility="collapsed")
+with col3b:
+    st.number_input("P_num", 1.0, 100.0, key="P_num", on_change=update_P_slider, format="%.1f", label_visibility="collapsed")
 
 st.sidebar.markdown("---")
-st.sidebar.info("El simulador resuelve paso a paso la ecuación diferencial de la inductancia, emulando el tiempo de muestreo (10 µs) de un DSP físico.")
+st.sidebar.info("El simulador resuelve la ecuación diferencial del filtro inductivo con un paso de 10 µs, emulando un DSP físico.")
+
+# Asignamos los valores sincronizados a las variables matemáticas
+L_mH = st.session_state.L_val
+banda_A = st.session_state.banda_val
+P_ref_kW = st.session_state.P_val
 
 # --- MOTOR DE SIMULACIÓN MATEMÁTICA ---
-# Parámetros fijos
 f = 50.0
 w = 2 * np.pi * f
 V_rms = 230.0
 V_red_peak = V_rms * np.sqrt(2)
 V_dc = 400.0
-dt = 1e-5  # 10 microsegundos
-t = np.arange(0, 0.04, dt)  # 40 milisegundos (2 ciclos de red)
+dt = 1e-5  
+t = np.arange(0, 0.04, dt) 
 
-# Cálculos intermedios
-L = L_mH * 1e-3  # Convierte los mH ingresados a Henrios para la ecuación
+L = L_mH * 1e-3  
 I_rms = (P_ref_kW * 1000) / V_rms
 I_ref_peak = I_rms * np.sqrt(2)
 
-# Señales de referencia
 v_red = V_red_peak * np.sin(w * t)
 i_ref = I_ref_peak * np.sin(w * t)
 
-# Vectores de almacenamiento
 i_meas = np.zeros_like(t)
 v_inv = np.zeros_like(t)
-
-# Condición inicial
 estado_inv = V_dc
 
-# Bucle de integración (Euler)
 for k in range(1, len(t)):
-    # Controlador de histéresis
     error = i_meas[k-1] - i_ref[k-1]
     if error > banda_A:
         estado_inv = -V_dc
@@ -74,8 +91,6 @@ for k in range(1, len(t)):
         estado_inv = V_dc
         
     v_inv[k] = estado_inv
-    
-    # Ecuación del filtro L
     di = ((v_inv[k] - v_red[k]) / L) * dt
     i_meas[k] = i_meas[k-1] + di
 
@@ -83,7 +98,6 @@ for k in range(1, len(t)):
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 plt.subplots_adjust(hspace=0.3)
 
-# Gráfica 1: Tensiones
 ax1.plot(t * 1000, v_red, color='#2ca02c', linewidth=2, label='Tensión de Red (Bus Infinito)')
 ax1.plot(t * 1000, v_inv, color='#1f77b4', alpha=0.7, label='Tensión de Salida del Inversor')
 ax1.set_title('Tensiones del Sistema', fontsize=14)
@@ -91,10 +105,8 @@ ax1.set_ylabel('Voltaje (V)', fontsize=12)
 ax1.legend(loc='upper right')
 ax1.grid(True, linestyle='--', alpha=0.6)
 
-# Gráfica 2: Corrientes
 ax2.plot(t * 1000, i_ref, color='black', linestyle='--', linewidth=2, label='Corriente de Referencia (P_ref)')
 ax2.plot(t * 1000, i_meas, color='#d62728', linewidth=1.5, label='Corriente Real Inyectada')
-# Líneas visuales de la banda de histéresis
 ax2.plot(t * 1000, i_ref + banda_A, color='gray', linestyle=':', alpha=0.5)
 ax2.plot(t * 1000, i_ref - banda_A, color='gray', linestyle=':', alpha=0.5)
 
@@ -104,5 +116,4 @@ ax2.set_ylabel('Corriente (A)', fontsize=12)
 ax2.legend(loc='upper right')
 ax2.grid(True, linestyle='--', alpha=0.6)
 
-# Renderizar figura en Streamlit
 st.pyplot(fig)

@@ -11,11 +11,29 @@ st.markdown("Simulación interactiva del lazo de control de corriente para el in
 
 # --- BARRA LATERAL: CONTROLES INTERACTIVOS ---
 st.sidebar.header("Parámetros del Sistema")
-st.sidebar.markdown("Modifica los valores para observar la respuesta dinámica:")
+st.sidebar.markdown("Escribe el valor exacto o usa las flechas:")
 
-L_mH = st.sidebar.slider("Inductancia del Filtro (mH)", min_value=1.0, max_value=20.0, value=5.0, step=0.5)
-banda_A = st.sidebar.slider("Banda de Histéresis (A)", min_value=0.5, max_value=15.0, value=4.0, step=0.5)
-P_ref_kW = st.sidebar.slider("Potencia Activa Inyectada (kW)", min_value=10.0, max_value=100.0, value=50.0, step=5.0)
+# Usamos number_input en lugar de slider para permitir escritura exacta
+L_mH = st.sidebar.number_input("Inductancia del Filtro (mH)", 
+                               min_value=0.1, 
+                               max_value=50.0, 
+                               value=1.0,  # Valor por defecto: 1 mH (1e-3 H)
+                               step=0.1, 
+                               format="%.2f")
+
+banda_A = st.sidebar.number_input("Banda de Histéresis (A)", 
+                                  min_value=0.1, 
+                                  max_value=20.0, 
+                                  value=4.0, 
+                                  step=0.1, 
+                                  format="%.2f")
+
+P_ref_kW = st.sidebar.number_input("Potencia Activa Inyectada (kW)", 
+                                   min_value=1.0, 
+                                   max_value=100.0, 
+                                   value=50.0, 
+                                   step=1.0, 
+                                   format="%.1f")
 
 st.sidebar.markdown("---")
 st.sidebar.info("El simulador resuelve paso a paso la ecuación diferencial de la inductancia, emulando el tiempo de muestreo (10 µs) de un DSP físico.")
@@ -31,7 +49,7 @@ dt = 1e-5  # 10 microsegundos
 t = np.arange(0, 0.04, dt)  # 40 milisegundos (2 ciclos de red)
 
 # Cálculos intermedios
-L = L_mH * 1e-3
+L = L_mH * 1e-3  # Convierte los mH ingresados a Henrios para la ecuación
 I_rms = (P_ref_kW * 1000) / V_rms
 I_ref_peak = I_rms * np.sqrt(2)
 
